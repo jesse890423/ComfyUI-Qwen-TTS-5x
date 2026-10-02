@@ -1,4 +1,4 @@
-# ComfyUI-Qwen-TTS
+# ComfyUI-Qwen-TTS-5x
 
 English | [中文版](README_CN.md)
 
@@ -44,14 +44,72 @@ bad reference audio.
 
 ### Installing
 
-Manager -> Custom Nodes Manager -> Install Custom Node, paste:
+Pick whichever suits you. All four end up with the same thing: a folder called
+`ComfyUI-Qwen-TTS-5x` inside `ComfyUI/custom_nodes/`.
 
-```
-https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x
+#### 1. ComfyUI Manager (easiest)
+
+1. Open ComfyUI, click **Manager**
+2. **Custom Nodes Manager** -> **Install Custom Nodes**
+3. Paste this into the search / URL box:
+   ```
+   https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x
+   ```
+4. Click **Install**, then restart ComfyUI when prompted
+
+Manager handles the clone and the dependencies for you.
+
+#### 2. git clone
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x.git
+cd ComfyUI-Qwen-TTS-5x
+..\..\..\python_embeded\python.exe -m pip install -r requirements.txt
 ```
 
-The folder created under `custom_nodes/` is named `ComfyUI-Qwen-TTS-5x`, matching
-this repository.
+Adjust the `python_embeded` path if your ComfyUI is not the portable build.
+
+#### 3. Download the zip
+
+1. On the repository page: **Code** -> **Download ZIP**
+2. Unzip it. The zip contains a folder called
+   `ComfyUI-Qwen-TTS-5x-main` -- **rename it to `ComfyUI-Qwen-TTS-5x`**
+   (drop the `-main` suffix). The name matters: ComfyUI derives the node
+   identity from the folder name, and this name is also what lets Manager
+   update the plugin later.
+3. Move the renamed folder into `ComfyUI/custom_nodes/`, so you end up with
+   ```
+   ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x/
+   ```
+   Do **not** end up with `ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x-main/`,
+   and do not put the contents loose directly into `custom_nodes/`.
+4. Install the dependencies:
+   ```bash
+   cd ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x
+   ..\..\..\python_embeded\python.exe -m pip install -r requirements.txt
+   ```
+5. Restart ComfyUI
+
+#### 4. Manual copy
+
+Copy the contents of this repository into a new folder
+`ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x`, install
+`requirements.txt`, and restart ComfyUI.
+
+#### Then get the models
+
+This node pack downloads nothing on its own. Model weights go where the
+[Model Directory Structure](#model-directory-structure) section below
+describes.
+
+### If the nodes do not appear
+
+1. Check the ComfyUI console for an error mentioning this plugin
+2. Confirm the folder path is exactly
+   `ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x/__init__.py`
+3. Confirm `transformers` is installed: `pip show transformers`
+4. Restart ComfyUI fully (not just the browser tab)
 
 ### Do not install both packages
 
@@ -261,7 +319,7 @@ pip install torch torchaudio transformers librosa accelerate
 
 ### Model Directory Structure
 
-ComfyUI-Qwen-TTS automatically searches for models in the following priority:
+ComfyUI-Qwen-TTS-5x automatically searches for models in the following priority:
 
 ```text
 ComfyUI/

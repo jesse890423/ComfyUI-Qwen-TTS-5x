@@ -1,4 +1,4 @@
-# ComfyUI-Qwen-TTS
+# ComfyUI-Qwen-TTS-5x
 
 [English](README.md) | 中文版
 
@@ -36,13 +36,68 @@
 
 ### 安装方式
 
-Manager -> Custom Nodes Manager -> Install Custom Node，粘贴：
+四种方式选其一，结果完全相同：`ComfyUI/custom_nodes/` 下出现一个
+叫 `ComfyUI-Qwen-TTS-5x` 的文件夹。
 
-```
-https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x
+#### 1. ComfyUI Manager（最简单）
+
+1. 打开 ComfyUI，点击 **Manager**
+2. **Custom Nodes Manager** -> **Install Custom Nodes**
+3. 在搜索框或 URL 框里粘贴：
+   ```
+   https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x
+   ```
+4. 点击 **Install**，按提示重启 ComfyUI
+
+Manager 会自动处理下载和依赖安装。
+
+#### 2. git clone
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x.git
+cd ComfyUI-Qwen-TTS-5x
+..\..\..\python_embeded\python.exe -m pip install -r requirements.txt
 ```
 
-`custom_nodes/` 下生成的目录名为 `ComfyUI-Qwen-TTS-5x`，与本仓库名一致。
+如果你用的不是便携版 ComfyUI，请自行调整 `python_embeded` 的路径。
+
+#### 3. 下载 zip 压缩包
+
+1. 在仓库页面：**Code** -> **Download ZIP**
+2. 解压。zip 里的文件夹名为 `ComfyUI-Qwen-TTS-5x-main`
+   —— **要改名为 `ComfyUI-Qwen-TTS-5x`**（去掉 `-main`）。
+   目录名很重要：ComfyUI 会根据文件夹名识别节点主体，
+   而这个名也是 Manager 以后能识别并更新插件的依据。
+3. 把改名后的文件夹移入 `ComfyUI/custom_nodes/`，最终得到：
+   ```
+   ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x/
+   ```
+   不要变成 `ComfyUI-Qwen-TTS-5x-main`，也不要把文件散放到
+   `custom_nodes/` 下。
+4. 安装依赖：
+   ```bash
+   cd ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x
+   ..\..\..\python_embeded\python.exe -m pip install -r requirements.txt
+   ```
+5. 重启 ComfyUI
+
+#### 4. 手动复制
+
+把本仓库的内容复制到新建的文件夹
+`ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x`，安装 `requirements.txt`，重启 ComfyUI。
+
+#### 接着对模型
+
+本插件不会自动下载任何文件。模型权重的放置位置请参见下方
+[模型目录结构示意](#模型目录结构示意)。
+
+### 如果节点没有出现
+
+1. 查看 ComfyUI 控制台，是否有关于本插件的报错
+2. 确认路径恰好是 `ComfyUI/custom_nodes/ComfyUI-Qwen-TTS-5x/__init__.py`
+3. 确认已安装 transformers：`pip show transformers`
+4. 完全重启 ComfyUI（不是只刷新浏览器页面）
 
 ### 不要同时安装两个版本
 
@@ -247,7 +302,7 @@ pip install torch torchaudio transformers librosa accelerate
 
 ### 模型目录结构示意
 
-目前插件按以下顺序自动搜索模型：
+ComfyUI-Qwen-TTS-5x 按以下顺序自动搜索模型：
 
 ```text
 ComfyUI/

@@ -52,4 +52,4 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 # Version information
 __version__ = "1.0.7"
 
-print(f"✅ ComfyUI-Qwen-TTS v{__version__} loaded")
+print(f"✅ ComfyUI-Qwen-TTS-5x v{__version__} loaded")
