@@ -88,12 +88,16 @@ Apache License 2.0 —— 见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。
 - **2026-01-24**：为所有 TTS 节点添加生成参数 (top_p, top_k, temperature, repetition_penalty) ([update.md](doc/update.md))
 - **2026-01-23**：依赖兼容性与 Mac (MPS) 支持，新增节点：VoiceClonePromptNode, DialogueInferenceNode ([update.md](doc/update.md))
 
-## 在线工作流 (Online Workflows)
+## 示例工作流
 
-- **Qwen3-TTS 多角色多轮对话生成工作流**:
-  - [workflow](https://www.runninghub.cn/post/2014703508829769729/?inviteCode=rh-v1041)
-- **Qwen3-TTS 3-in-1 (克隆、设计、自定义) 工作流**:
-  - [workflow](https://www.runninghub.cn/post/2014962110224142337/?inviteCode=rh-v1041)
+可直接使用的工作流位于 [`example/`](example/) 目录：
+
+| 文件 | 内容 |
+|---|---|
+| `example.json` | 基础合成 |
+| `Custom Save Voice.json` | 保存音色以复用 |
+| `Multi-character dialogue.json` | 多角色对话 |
+| `Model Fine-Tuning and Workflow Usage.json` | 微调配置 |
 
 ## 功能特性
 
@@ -293,7 +297,13 @@ qwen-tts: D:\MyAI\Models\Qwen
 - 本项目采用 **Apache License 2.0** 许可证。
 - 模型权重请参考 [Qwen3-TTS 许可协议](https://github.com/QwenLM/Qwen3-TTS#License)。
 
-## 作者 (Author)
+## 致谢
 
-- **Bilibili**: [个人空间](https://space.bilibili.com/5594117?spm_id_from=333.1007.0.0)
-- **YouTube**: [频道](https://www.youtube.com/channel/UCx5L-wKf93YNbcP_55vDCeg)
+项目能够完成，需感许原作者：
+
+- **[flybirdxx/ComfyUI-Qwen-TTS](https://github.com/flybirdxx/ComfyUI-Qwen-TTS)** —— 原始实现，
+  基于 Apache-2.0 许可。本仓库是它的分支。
+- **[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)** —— 模型本体，由阿里云 Qwen 团队开源。
+  模型权重由该项目提供，本仓库不包含权重。
+
+原始节点包与模型的后续更新，请关注上述上游项目。

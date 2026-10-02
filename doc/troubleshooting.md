@@ -32,4 +32,7 @@
 If you encounter other problems, please:
 1. Check the ComfyUI console for detailed error messages
 2. Verify all dependencies are installed: `pip install -r requirements.txt`
-3. Report issues at: https://github.com/flybirdxx/ComfyUI-Qwen-TTS/issues
+3. Report issues in this fork:
+   https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x/issues
+   For anything about the original node pack, use upstream instead:
+   https://github.com/flybirdxx/ComfyUI-Qwen-TTS/issues

@@ -101,12 +101,16 @@ ComfyUI custom nodes for speech synthesis, voice cloning, and voice design, base
 - **2026-01-24**: Added generation parameters (top_p, top_k, temperature, repetition_penalty) to all TTS nodes ([update.md](doc/update.md))
 - **2026-01-23**: Dependency compatibility & Mac (MPS) support, New nodes: VoiceClonePromptNode, DialogueInferenceNode ([update.md](doc/update.md))
 
-## Online Workflows
+## Example workflows
 
-- **Qwen3-TTS Multi-Role Multi-Round Dialogue Generation Workflow**:
-  - [workflow](https://www.runninghub.ai/post/2014703508829769729/?inviteCode=rh-v1041)
-- **Qwen3-TTS 3-in-1 (Clone, Design, Custom) Workflow**:
-  - [workflow](https://www.runninghub.ai/post/2014962110224142337/?inviteCode=rh-v1041)
+Ready-to-use workflows are in [`example/`](example/):
+
+| File | What it shows |
+|---|---|
+| `example.json` | Basic synthesis |
+| `Custom Save Voice.json` | Saving a voice for reuse |
+| `Multi-character dialogue.json` | Multi-role dialogue |
+| `Model Fine-Tuning and Workflow Usage.json` | Fine-tuning setup |
 
 ## Key Features
 
@@ -307,7 +311,13 @@ qwen-tts: D:\MyModels\Qwen
 - This project is licensed under the **Apache License 2.0**.
 - Model weights are subject to the [Qwen3-TTS License Agreement](https://github.com/QwenLM/Qwen3-TTS#License).
 
-## Author
+## Credits
 
-- **Bilibili**: [Space](https://space.bilibili.com/5594117?spm_id_from=333.1007.0.0)
-- **YouTube**: [Channel](https://www.youtube.com/channel/UCx5L-wKf93YNbcP_55vDCeg)
+This project exists thanks to the original author:
+
+- **[flybirdxx/ComfyUI-Qwen-TTS](https://github.com/flybirdxx/ComfyUI-Qwen-TTS)** -- original
+  implementation, Apache-2.0. This repository is a fork of it.
+- **[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)** -- the model itself, by the
+  Alibaba Qwen team. Model weights come from there and are not included here.
+
+Follow the upstream projects for updates to the original node pack and to the model.
