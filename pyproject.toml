@@ -1,13 +1,13 @@
 [project]
 name = "qwen3-tts-comfyui-5x"  # Unique identifier (immutable after creation)
-description = "ComfyUI custom nodes for Qwen3-TTS, patched for transformers 5.x compatibility"
+description = "ComfyUI custom nodes for Qwen3-TTS, patched for transformers 5.x compatibility (verified on 5.14.1)"
 version = "1.0.7"  # Semantic versioning
 requires-python = ">=3.9"
-license = { text = "Apache-2.0" }
+license = { file = "LICENSE" }
 dependencies = [
     "torch",
     "torchaudio",
-    "transformers>=4.57.0,<5.0.0",
+    "transformers>=4.57.0",
     "librosa",
     "soundfile",
     "accelerate",
@@ -23,4 +23,4 @@ Repository = "https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x"
 [tool.comfy]
 PublisherId = "jesse890423"  # TODO: replace with the id issued by https://registry.comfy.org
 DisplayName = "Qwen3-TTS 5.x - Voice Synthesis & Cloning"
-Icon = "https://raw.githubusercontent.com/flybirdxx/ComfyUI-Qwen-TTS/main/example/qwen3-tts.png"
+Icon = "https://raw.githubusercontent.com/jesse890423/ComfyUI-Qwen-TTS-5x/main/icon.png"
