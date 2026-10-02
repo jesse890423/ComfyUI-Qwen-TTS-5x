@@ -1,0 +1,47 @@
+ComfyUI-Qwen-TTS
+Copyright 2026 flybirdxx and contributors
+
+This product includes software developed by third parties, licensed under
+the Apache License, Version 2.0 (the "License"); you may not use these files
+except in compliance with the License. A copy of the License is distributed
+with this product as LICENSE, and may also be obtained at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
+Upstream projects this custom node builds on:
+
+1. Qwen3-TTS
+   Copyright 2025 Alibaba Cloud (Qwen team)
+   https://github.com/QwenLM/Qwen3-TTS
+   Licensed under the Apache License, Version 2.0.
+   This project wraps Qwen3-TTS for ComfyUI. Model weights are distributed
+   separately by Alibaba Cloud and are governed by the Qwen3-TTS License
+   Agreement, NOT by the Apache License 2.0 of this custom node's code.
+
+2. ComfyUI
+   Copyright 2025 Comfy Org
+   https://github.com/Comfy-Org/ComfyUI
+   Licensed under the GNU General Public License v3.0.
+   ComfyUI itself is not distributed as part of this package; this custom
+   node only interfaces with it at runtime.
+
+--------------------------------------------------------------------------------
+
+Original work
+
+This custom node package originates from:
+    https://github.com/flybirdxx/ComfyUI-Qwen-TTS
+    Copyright 2026 flybirdxx
+    Licensed under the Apache License, Version 2.0.
+
+Modifications made in this distribution are not endorsed, warranted, or
+guaranteed by the original right-holder(s) of the original project, and the
+original right-holder(s) disclaim all liability related to these
+modifications.
+
+Model weights referenced by this project (e.g. Qwen3-TTS) are not included in
+this package and must be obtained separately from their respective owners.
+Their use is governed by their own license agreements, which may differ from
+the license of this code.
