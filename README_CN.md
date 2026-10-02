@@ -34,6 +34,29 @@
 
 其中第 5 条最值得注意：它不会报错、也不会记日志。模型只是产出无意义的声学帧，很容易被误判为参考音频的问题。
 
+### 安装方式
+
+Manager -> Custom Nodes Manager -> Install Custom Node，粘贴：
+
+```
+https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x
+```
+
+`custom_nodes/` 下生成的目录名为 `ComfyUI-Qwen-TTS-5x`，与本仓库名一致。
+
+### 不要同时安装两个版本
+
+本分支保留了上游的节点类名（`FB_Qwen3TTS*`），以保持现有工作流可继续使用。因此本分支与上游注册的**是同一批节点类名**，同时启用会冲突。
+
+请二选一：
+
+| | transformers | 目录 |
+|---|---|---|
+| 本分支 | 4.57+ **以及 5.x** | `ComfyUI-Qwen-TTS-5x` |
+| [上游](https://github.com/flybirdxx/ComfyUI-Qwen-TTS) | 仅 4.57.x | `ComfyUI-Qwen-TTS` |
+
+如需切换，请禁用或删除另一个（将其目录改名为 `<name>.disabled`，或用 Manager 的 Disable 按钮）。
+
 ### 验证环境
 
 ```

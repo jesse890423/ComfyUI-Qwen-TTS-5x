@@ -1,5 +1,9 @@
 [project]
-name = "qwen3-tts-comfyui-5x"  # Unique identifier (immutable after creation)
+name = "ComfyUI-Qwen-TTS-5x"  # Unique identifier (immutable after creation)
+# Matches the repository name on purpose, so the folder that Manager
+# creates under custom_nodes/ carries the same name users see on GitHub.
+# NB: the node CLASS names (FB_Qwen3TTS*) are identical to upstream, so the
+# two packages must not be enabled at the same time.
 description = "ComfyUI custom nodes for Qwen3-TTS, patched for transformers 5.x compatibility (verified on 5.14.1)"
 version = "1.0.7"  # Semantic versioning
 requires-python = ">=3.9"

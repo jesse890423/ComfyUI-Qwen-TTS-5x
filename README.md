@@ -42,6 +42,33 @@ Fix 5 is the one worth highlighting: it raises nothing and logs nothing. The
 model just emits meaningless acoustic frames, which is easy to mistake for a
 bad reference audio.
 
+### Installing
+
+Manager -> Custom Nodes Manager -> Install Custom Node, paste:
+
+```
+https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x
+```
+
+The folder created under `custom_nodes/` is named `ComfyUI-Qwen-TTS-5x`, matching
+this repository.
+
+### Do not install both packages
+
+This fork keeps the upstream node class names (`FB_Qwen3TTS*`) so existing
+workflows keep working. Upstream and this fork therefore register **the same
+class names**, and enabling both at once makes the nodes clash.
+
+Pick one:
+
+| | transformers | Folder |
+|---|---|---|
+| This fork | 4.57+ **and 5.x** | `ComfyUI-Qwen-TTS-5x` |
+| [Upstream](https://github.com/flybirdxx/ComfyUI-Qwen-TTS) | 4.57.x only | `ComfyUI-Qwen-TTS` |
+
+To switch, disable or delete the other one (rename its folder to `<name>.disabled`,
+or use Manager's Disable button).
+
 ### Verified environment
 
 ```
