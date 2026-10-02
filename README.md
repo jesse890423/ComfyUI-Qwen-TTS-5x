@@ -2,13 +2,61 @@
 
 English | [中文版](README_CN.md)
 
-> **⚠️ CRITICAL: transformers Version Requirement**
+> **✅ transformers 5.x support (this fork)**
 >
-> Qwen3-TTS is **incompatible** with `transformers >= 5.0`. Versions 5.0+ introduce breaking API changes that will cause model loading failures and runtime errors. Please pin your version:
-> ```bash
-> pip install transformers==4.57.3
-> ```
-> If you have already installed a newer version, **downgrade immediately** before using this plugin.
+> This fork adapts the plugin to **transformers 5.x**, verified on
+> transformers 5.14.1 / ComfyUI 0.37.0 / torch 2.13.0.
+> The upstream v1.0.7 declares `transformers>=4.57.0,<5.0.0`; if you need the
+> original 4.x behaviour, use the upstream release pinned to 4.57.3.
+
+---
+
+## About this fork
+
+This repository is a fork of
+[flybirdxx/ComfyUI-Qwen-TTS](https://github.com/flybirdxx/ComfyUI-Qwen-TTS)
+(Apache-2.0), adapted for the transformers 5.x environment.
+
+### Why
+
+Upstream v1.0.7 declares `transformers>=4.57.0,<5.0.0`. Downgrading the shared
+ComfyUI environment was not an option, so the four affected files were adapted
+in place. Every fix was verified by measurement, not by inspection.
+
+### Fixes
+
+| # | Issue | Impact |
+|---|---|---|
+| 1 | `pad_token_id` no longer copied onto `PretrainedConfig` in 5.x | `AttributeError` on load |
+| 2 | `ROPE_INIT_FUNCTIONS["default"]` removed in 5.14 | replaced with a local unscaled implementation (mapping it to `"linear"` would be wrong) |
+| 3 | `create_causal_mask` signature change (`input_embeds` -> `inputs_embeds`, `cache_position` dropped) | call-time signature adaptation |
+| 4 | `cache_position` arrives as `None` on decode | **crash**: `mat1 and mat2 shapes cannot be multiplied (1x55296 and 2048x2048)` |
+| 5 | `inv_freq` left as uninitialised meta memory | **silent failure**: audio is produced but the voice is completely wrong, no exception |
+| 6 | `layer_type_validation` deprecation shim logs on every call | 59 identical log lines per model load |
+| 7 | `ProgressBar(total)` defaults to `node_id=None` | progress never displayed in the panel |
+| 8 | `generate()` is one blocking call | progress bar frozen for the whole generation |
+| 9 | step counter went negative (`input_ids` excludes prefill) | bar jumped straight to 100% |
+| 10 | ComfyUI 0.37 registers no `CLIProgressHandler` | added a self-contained stderr console bar |
+
+Fix 5 is the one worth highlighting: it raises nothing and logs nothing. The
+model just emits meaningless acoustic frames, which is easy to mistake for a
+bad reference audio.
+
+### Verified environment
+
+```
+ComfyUI        0.37.0
+transformers   5.14.1
+torch          2.13.0+cu130
+plugin         ComfyUI-Qwen-TTS v1.0.7
+```
+
+### License
+
+Apache License 2.0 -- see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+This fork only changes the plugin's own code. **Model weights are not included**
+and remain governed by the Qwen3-TTS License Agreement from Alibaba Cloud.
 
 ![Nodes Screenshot](example/example.png)
 

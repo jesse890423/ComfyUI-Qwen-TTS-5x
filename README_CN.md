@@ -2,13 +2,52 @@
 
 [English](README.md) | 中文版
 
-> **⚠️ 重要提醒：transformers 版本要求**
+> **✅ 本分支已支持 transformers 5.x**
 >
-> Qwen3-TTS 与 `transformers >= 5.0` **不兼容**。5.0 及以上版本引入了破坏性的 API 变更，会导致模型加载失败和运行时错误。请务必固定版本：
-> ```bash
-> pip install transformers==4.57.3
-> ```
-> 如果你已经安装了更高版本，请在使用本插件前**立即降级**。
+> 本分支已适配 **transformers 5.x**，在 transformers 5.14.1 / ComfyUI 0.37.0 / torch 2.13.0 下验证通过。
+> 上游 v1.0.7 声明的依赖为 `transformers>=4.57.0,<5.0.0`；如需原始 4.x 行为，请使用固定到 4.57.3 的上游版本。
+
+---
+
+## 关于本分支
+
+本仓库是 [flybirdxx/ComfyUI-Qwen-TTS](https://github.com/flybirdxx/ComfyUI-Qwen-TTS)（Apache-2.0）的分支，用于 transformers 5.x 环境。
+
+### 为什么要做适配
+
+上游 v1.0.7 的 `requirements.txt` 声明 `transformers>=4.57.0,<5.0.0`。在不降级共享 ComfyUI 环境的前提下，直接对涉及的四个文件做了定向适配。每项修复都是通过实测验证的，而不是靠阅读代码。
+
+### 修复内容
+
+| # | 问题 | 影响 |
+|---|---|---|
+| 1 | 5.x 不再将 `pad_token_id` 复制到 `PretrainedConfig` | 加载时 `AttributeError` |
+| 2 | 5.14 删除了 `ROPE_INIT_FUNCTIONS["default"]` | 改为本地实现未缩放版（映射到 `"linear"` 会错） |
+| 3 | `create_causal_mask` 签名变更（`input_embeds` -> `inputs_embeds`，移除 `cache_position`） | 调用时适配签名 |
+| 4 | decode 阶段 `cache_position` 传入为 `None` | **崩溃**：`mat1 and mat2 shapes cannot be multiplied (1x55296 and 2048x2048)` |
+| 5 | `inv_freq` 为未初始化的 meta 内存 | **静默失败**：能生成音频但音色完全错误，不报错 |
+| 6 | `layer_type_validation` 降级 shim 每次调用都打日志 | 每次加载模型重复刷屏 59 行 |
+| 7 | `ProgressBar(total)` 默认 `node_id=None` | 面板中完全不显示进度 |
+| 8 | `generate()` 是单个阻塞调用 | 生成期间进度条僵死 |
+| 9 | 步计数变负（`input_ids` 不包含 prefill） | 进度条直接跳到 100% |
+| 10 | ComfyUI 0.37 未注册 `CLIProgressHandler` | 新增独立的 stderr 控制台进度条 |
+
+其中第 5 条最值得注意：它不会报错、也不会记日志。模型只是产出无意义的声学帧，很容易被误判为参考音频的问题。
+
+### 验证环境
+
+```
+ComfyUI        0.37.0
+transformers   5.14.1
+torch          2.13.0+cu130
+插件\ComfyUI-Qwen-TTS v1.0.7
+```
+
+### 许可证
+
+Apache License 2.0 —— 见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。
+
+本分支仅修改插件自己的代码。**模型权重不包含在本仓库中**，仍遵循阿里云市的 Qwen3-TTS 模型使用许可。
 
 ![节点截图](example/example.png)
 

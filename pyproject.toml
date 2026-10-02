@@ -1,6 +1,6 @@
 [project]
-name = "qwen3-tts-comfyui"  # Unique identifier (immutable after creation)
-description = "ComfyUI custom nodes for speech synthesis, voice cloning, and voice design based on Qwen3-TTS"
+name = "qwen3-tts-comfyui-5x"  # Unique identifier (immutable after creation)
+description = "ComfyUI custom nodes for Qwen3-TTS, patched for transformers 5.x compatibility"
 version = "1.0.7"  # Semantic versioning
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
@@ -18,9 +18,9 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/flybirdxx/ComfyUI-Qwen-TTS"
+Repository = "https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x"
 
 [tool.comfy]
-PublisherId = "flybirdxx"  # TODO: Fill in your Publisher ID from https://registry.comfy.org
-DisplayName = "Qwen3-TTS - Voice Synthesis & Cloning"
+PublisherId = "jesse890423"  # TODO: replace with the id issued by https://registry.comfy.org
+DisplayName = "Qwen3-TTS 5.x - Voice Synthesis & Cloning"
 Icon = "https://raw.githubusercontent.com/flybirdxx/ComfyUI-Qwen-TTS/main/example/qwen3-tts.png"
