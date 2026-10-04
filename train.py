@@ -36,6 +36,64 @@ logger = logging.getLogger("ComfyUI-Qwen-TTS-Train")
 
 SUPPORTED_AUDIO_EXTENSIONS = (".wav", ".mp3", ".flac", ".ogg", ".m4a")
 
+# ---------------------------------------------------------------------------
+# Path guards
+#
+# audio_folder and output_dir come from widgets, and widget values are stored in
+# the workflow, so whoever shares a workflow decides them. Both are resolved
+# against fixed base directories here: the dataset is read from the ComfyUI
+# input directory, and checkpoints are written under the output directory.
+# ---------------------------------------------------------------------------
+
+def _resolve_within(base_dir, raw, label="path", must_exist=False):
+    """Resolve `raw` against `base_dir` and confirm the result stays inside it.
+
+    realpath() collapses symlinks and "..", then commonpath() confirms the
+    resolved path really is under the base directory. Both steps are needed:
+    realpath alone does not stop a symlink that points outside the base, and
+    commonpath alone does not stop an unresolved "..".
+    """
+    base_real = os.path.realpath(base_dir)
+    text = str(raw or "").strip()
+    if not text:
+        raise ValueError(f"Empty {label}.")
+
+    if os.path.isabs(text) or os.path.splitdrive(text)[0]:
+        raise ValueError(
+            f"{label} must be a relative path inside {base_real}; "
+            f"absolute paths are rejected. Got: {text}"
+        )
+
+    candidate = os.path.realpath(os.path.join(base_real, text))
+
+    try:
+        inside = os.path.commonpath([candidate, base_real]) == base_real
+    except ValueError:
+        inside = False
+
+    if not inside:
+        raise ValueError(f"{label} must stay inside {base_real}. Got: {text}")
+
+    if must_exist and not os.path.isdir(candidate):
+        raise ValueError(f"{label} not found: {candidate}")
+
+    return candidate
+
+
+def _is_inside(path, base_dir):
+    """True when `path` really resolves to a location under `base_dir`."""
+    try:
+        return os.path.commonpath(
+            [os.path.realpath(path), os.path.realpath(base_dir)]
+        ) == os.path.realpath(base_dir)
+    except ValueError:
+        return False
+
+
+def _finetune_base_dir():
+    """Base directory for training outputs, inside the ComfyUI output directory."""
+    return os.path.realpath(os.path.join(folder_paths.output_directory, "qwen3tts_finetune"))
+
 def send_training_update(node_id, data):
     if PromptServer.instance is not None:
         PromptServer.instance.send_sync(
@@ -62,7 +120,9 @@ def audio_to_base64(audio_np, sample_rate):
 class Qwen3TTS_Train_Node:
     @classmethod
     def INPUT_TYPES(cls):
-        default_output = os.path.join(folder_paths.output_directory, "qwen3tts_finetune")
+        # Both path widgets are relative to a fixed base directory:
+        # audio_folder -> ComfyUI input directory, output_dir -> output/qwen3tts_finetune.
+        default_output = "qwen3tts_finetune"
         
         # Import ALL_MODELS from nodes.py to populate the list
         try:
@@ -80,8 +140,17 @@ class Qwen3TTS_Train_Node:
             "required": {
                 "init_model": (model_list, {"default": "Qwen/Qwen3-TTS-12Hz-1.7B-Base"}),
                 "tokenizer": (["Qwen/Qwen3-TTS-Tokenizer-12Hz"], {"default": "Qwen/Qwen3-TTS-Tokenizer-12Hz"}),
-                "audio_folder": ("STRING", {"default": ""}),
-                "output_dir": ("STRING", {"default": default_output}),
+                "audio_folder": ("STRING", {
+                    "default": "",
+                    "tooltip": "Dataset folder, relative to the ComfyUI input directory. "
+                               "Absolute paths and '..' are rejected. "
+                               "Each audio file may have a sibling .txt transcript.",
+                }),
+                "output_dir": ("STRING", {
+                    "default": default_output,
+                    "tooltip": "Checkpoint output folder, relative to the ComfyUI output directory. "
+                               "Absolute paths and '..' are rejected.",
+                }),
                 "speaker_name": ("STRING", {"default": "new_speaker"}),
                 "test_text": ("STRING", {
                     "multiline": True,
@@ -112,11 +181,22 @@ class Qwen3TTS_Train_Node:
         if TTSDataset is None:
             raise RuntimeError("Training dependencies missing. Please check requirements.")
 
-        if not os.path.isdir(audio_folder):
-            raise ValueError(f"Audio folder not found: {audio_folder}")
+        # audio_folder is relative to the ComfyUI input directory; it is read
+        # (together with each audio file's sibling .txt) from there only.
+        audio_dir = _resolve_within(
+            folder_paths.get_input_directory(),
+            audio_folder,
+            "audio_folder",
+            must_exist=True,
+        )
+
+        # output_dir is relative to the ComfyUI output directory; checkpoints and
+        # the copied model tree are written under it only.
+        out_base = _finetune_base_dir()
+        resolved_output_dir = _resolve_within(out_base, output_dir, "output_dir")
 
         # Basic setup
-        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(resolved_output_dir, exist_ok=True)
         send_training_update(unique_id, {"type": "status", "message": "Initializing..."})
         
         # 1. Load Model Fresh
@@ -177,7 +257,7 @@ class Qwen3TTS_Train_Node:
              tts_tokenizer.device = torch.device("cuda")
 
         # 2. Prepare Dataset
-        entries = self._prepare_dataset(audio_folder, tts_tokenizer, language, unique_id)
+        entries = self._prepare_dataset(audio_dir, tts_tokenizer, language, unique_id)
         if not entries:
             raise ValueError("No valid audio/txt pairs found in folder.")
             
@@ -280,7 +360,9 @@ class Qwen3TTS_Train_Node:
 
             # Checkpoint
             if (epoch + 1) % validate_every == 0 or epoch == num_epochs - 1:
-                checkpoint_dir = os.path.join(output_dir, f"checkpoint-epoch-{epoch}")
+                checkpoint_dir = _resolve_within(
+                    resolved_output_dir, f"checkpoint-epoch-{epoch}", "checkpoint directory"
+                )
                 
                 # Copy Base Model structure
                 shutil.copytree(model_path, checkpoint_dir, dirs_exist_ok=True)
@@ -315,15 +397,25 @@ class Qwen3TTS_Train_Node:
         return (final_checkpoint,)
 
     def _prepare_dataset(self, audio_folder, tokenizer, language, unique_id):
-        folder = Path(audio_folder)
+        # audio_folder is already resolved against the input directory by the
+        # caller; re-resolve it here so this method is safe on its own too.
+        folder = Path(_resolve_within(
+            folder_paths.get_input_directory(),
+            os.path.relpath(audio_folder, folder_paths.get_input_directory())
+            if _is_inside(audio_folder, folder_paths.get_input_directory()) else audio_folder,
+            "audio_folder",
+            must_exist=True,
+        ))
         files = sorted([f for f in folder.iterdir() if f.suffix.lower() in SUPPORTED_AUDIO_EXTENSIONS])
         entries = []
-        
+
         # Use first file as ref audio for all (consistency)
         ref_audio = str(files[0].absolute()) if files else None
-        
+
         for f in files:
-            txt_path = f.with_suffix(".txt")
+            # The transcript is the sibling .txt; resolve it against the dataset
+            # folder so a crafted file name cannot read outside it.
+            txt_path = Path(_resolve_within(str(folder), f.name[: -len(f.suffix)] + ".txt", "transcript file"))
             if txt_path.exists():
                 with open(txt_path, 'r', encoding='utf-8') as tf:
                     text = tf.read().strip()

@@ -115,6 +115,110 @@ except ImportError:
         VoiceClonePromptItem = None
 
 
+# ---------------------------------------------------------------------------
+# Path guards
+#
+# Widget values are stored in the workflow, so whoever shares a workflow also
+# decides these strings. Every filesystem path built from a widget is resolved
+# against a fixed base directory here, so a shared workflow cannot make this
+# plugin read or write files elsewhere on the host.
+# ---------------------------------------------------------------------------
+
+def _resolve_within(base_dir, raw, label="path", must_exist=False):
+    """Resolve `raw` against `base_dir` and confirm the result stays inside it.
+
+    realpath() collapses symlinks and "..", then commonpath() confirms the
+    resolved path really is under the base directory. Both steps are needed:
+    realpath alone does not stop a symlink that points outside the base, and
+    commonpath alone does not stop an unresolved "..".
+
+    Returns the resolved absolute path, or raises ValueError when the value
+    escapes the base directory (or, with must_exist, does not exist).
+    """
+    base_real = os.path.realpath(base_dir)
+    text = str(raw or "").strip()
+    if not text:
+        raise ValueError(f"Empty {label}.")
+
+    # Reject absolute paths and Windows drive/UNC prefixes up front so the
+    # error message names the actual problem instead of a generic escape.
+    if os.path.isabs(text) or os.path.splitdrive(text)[0]:
+        raise ValueError(
+            f"{label} must be a relative path inside {base_real}; "
+            f"absolute paths are rejected. Got: {text}"
+        )
+
+    candidate = os.path.realpath(os.path.join(base_real, text))
+
+    try:
+        inside = os.path.commonpath([candidate, base_real]) == base_real
+    except ValueError:
+        # Raised on Windows when the two paths are on different drives.
+        inside = False
+
+    if not inside:
+        raise ValueError(
+            f"{label} must stay inside {base_real}. Got: {text}"
+        )
+
+    if must_exist and not os.path.exists(candidate):
+        raise ValueError(f"{label} not found: {candidate}")
+
+    return candidate
+
+
+def _voices_dir():
+    """The single base directory this plugin writes voices into."""
+    return os.path.realpath(os.path.join(folder_paths.models_dir, "qwen-tts", "voices"))
+
+
+def _safe_filename(name, label="filename"):
+    """Reduce a user-supplied file name to a bare name inside the base directory.
+
+    Directory separators, drive letters and ".." are rejected outright rather
+    than sanitised, so the result is always a plain file name directly inside
+    the base directory.
+    """
+    text = str(name or "").strip()
+    if not text:
+        raise ValueError(f"Empty {label}.")
+    if os.path.isabs(text) or os.path.splitdrive(text)[0]:
+        raise ValueError(f"{label} must be a bare file name, not an absolute path. Got: {text}")
+    if "/" in text or "\\" in text:
+        raise ValueError(f"{label} must not contain directory separators. Got: {text}")
+    # Checked as a path segment, so that "..", "../x" and "a/../b" are all caught.
+    if os.pardir in text.replace("\\", "/").split("/"):
+        raise ValueError(f"{label} must not contain '..'. Got: {text}")
+    if text in (os.curdir, ""):
+        raise ValueError(f"{label} must name a file. Got: {text}")
+    return text
+
+
+# The .qvp files hold VoiceClonePromptItem objects, which weights_only=True
+# refuses to unpickle unless the class is registered as a safe global.
+# Registering it keeps torch.load in safe mode while still letting a user's own
+# saved voices load; it does not allow arbitrary code from the file to run.
+_SAFE_GLOBALS_REGISTERED = False
+
+
+def _register_safe_globals():
+    """Allow VoiceClonePromptItem to be unpickled by torch.load(weights_only=True)."""
+    global _SAFE_GLOBALS_REGISTERED
+    if _SAFE_GLOBALS_REGISTERED:
+        return
+    if VoiceClonePromptItem is None:
+        return
+    add = getattr(getattr(torch, "serialization", None), "add_safe_globals", None)
+    if add is None:
+        return
+    try:
+        add([VoiceClonePromptItem])
+    except Exception as exc:  # pragma: no cover - depends on the torch build
+        print(f"[Qwen3-TTS] Could not register VoiceClonePromptItem as a safe global: {exc}")
+        return
+    _SAFE_GLOBALS_REGISTERED = True
+
+
 ATTENTION_OPTIONS = ["auto", "sage_attn", "flash_attn", "sdpa", "eager"]
 
 def check_attention_implementation():
@@ -1596,21 +1700,26 @@ class SaveVoiceNode:
     def save(self, voice_clone_prompt, filename, audio=None, ref_text=""):
         import soundfile as sf
         import json
-        if not filename.endswith(".qvp"):
-            filename_qvp = filename + ".qvp"
-            filename_wav = filename + ".wav"
-            filename_json = filename + ".json"
-        else:
+
+        # filename comes from a widget, so it is attacker-controlled when a
+        # workflow is shared. Reduce it to a bare name and keep every write
+        # inside the voices directory.
+        filename = _safe_filename(filename, "filename")
+        if filename.endswith(".qvp"):
             filename_qvp = filename
-            filename_wav = filename.replace(".qvp", ".wav")
-            filename_json = filename.replace(".qvp", ".json")
-        
+            stem = filename[: -len(".qvp")]
+        else:
+            filename_qvp = filename + ".qvp"
+            stem = filename
+        filename_wav = stem + ".wav"
+        filename_json = stem + ".json"
+
         # Use ComfyUI models/qwen-tts/voices directory
-        output_dir = os.path.join(folder_paths.models_dir, "qwen-tts", "voices")
+        output_dir = _voices_dir()
         os.makedirs(output_dir, exist_ok=True)
-        
+
         # 1. Save features (Raw prompt)
-        path_qvp = os.path.join(output_dir, filename_qvp)
+        path_qvp = _resolve_within(output_dir, filename_qvp, "voice features file")
         torch.save(voice_clone_prompt, path_qvp)
         print(f"✅ [Qwen3-TTS] Voice features saved to: {path_qvp}")
 
@@ -1620,7 +1729,7 @@ class SaveVoiceNode:
             "source": "SaveVoiceNode",
             "version": "1.0"
         }
-        path_json = os.path.join(output_dir, filename_json)
+        path_json = _resolve_within(output_dir, filename_json, "voice metadata file")
         try:
             with open(path_json, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, ensure_ascii=False, indent=4)
@@ -1644,7 +1753,7 @@ class SaveVoiceNode:
                 if waveform_np.ndim == 3: # [B, C, S] -> [S, C] (assume batch size 1)
                     waveform_np = waveform_np[0].T
                 
-                wav_path = os.path.join(output_dir, filename_wav)
+                wav_path = _resolve_within(output_dir, filename_wav, "reference audio file")
                 sf.write(wav_path, waveform_np, sr)
                 print(f"✅ [Qwen3-TTS] Reference audio (Speaker) saved to: {wav_path}")
             except Exception as e:
@@ -1660,7 +1769,7 @@ class LoadSpeakerNode:
     """
     @classmethod
     def INPUT_TYPES(cls):
-        output_dir = os.path.join(folder_paths.models_dir, "qwen-tts", "voices")
+        output_dir = _voices_dir()
         os.makedirs(output_dir, exist_ok=True)
         # List WAV files in the voices directory
         files = [f for f in os.listdir(output_dir) if f.endswith((".wav", ".mp3", ".flac"))]
@@ -1681,10 +1790,12 @@ class LoadSpeakerNode:
     def load_speaker(self, filename):
         if filename == "None":
             raise RuntimeError("No speaker files found to load.")
-            
-        voices_dir = os.path.join(folder_paths.models_dir, "qwen-tts", "voices")
-        wav_path = os.path.join(voices_dir, filename)
-        
+
+        # filename comes from a widget; keep the read inside the voices directory.
+        filename = _safe_filename(filename, "filename")
+        voices_dir = _voices_dir()
+        wav_path = _resolve_within(voices_dir, filename, "speaker audio file", must_exist=True)
+
         # 1. Load the AUDIO for output/preview
         import librosa
         wav, sr = librosa.load(wav_path, sr=None)
@@ -1693,9 +1804,9 @@ class LoadSpeakerNode:
 
         # 2. Automatically load metadata and pre-computed features
         qvp_file = os.path.splitext(filename)[0] + ".qvp"
-        qvp_path = os.path.join(voices_dir, qvp_file)
+        qvp_path = _resolve_within(voices_dir, qvp_file, "voice features file")
         json_file = os.path.splitext(filename)[0] + ".json"
-        json_path = os.path.join(voices_dir, json_file)
+        json_path = _resolve_within(voices_dir, json_file, "voice metadata file")
         
         prompt_items = None
         ref_text = ""
@@ -1716,12 +1827,23 @@ class LoadSpeakerNode:
         # 2.2 Check for pre-computed features (.qvp)
         if os.path.exists(qvp_path):
             try:
-                # Set weights_only=False to allow custom VoiceClonePromptItem class (PyTorch 2.6+ compatibility)
-                if hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
-                    # Optional: Could use add_safe_globals, but weights_only=False is more direct for local files
-                    data = torch.load(qvp_path, map_location="cpu", weights_only=False)
-                else:
-                    data = torch.load(qvp_path, map_location="cpu")
+                # A .qvp holds VoiceClonePromptItem objects. Load it with
+                # weights_only=True so a shared voice file cannot execute
+                # embedded code, and register VoiceClonePromptItem as a safe
+                # global so the user's own saved voices still load.
+                _register_safe_globals()
+                try:
+                    data = torch.load(qvp_path, map_location="cpu", weights_only=True)
+                except TypeError as exc:
+                    # torch without the weights_only argument (pre-1.13).
+                    # Do NOT retry without it: an unrestricted load would let a
+                    # shared voice file execute code. Skip the fast path and
+                    # recompute the features from the audio instead.
+                    print(
+                        f"[Qwen3-TTS] This torch build cannot load .qvp safely "
+                        f"({exc}); recomputing features from the audio instead."
+                    )
+                    raise
                 
                 # Support legacy packaged format and raw format
                 if isinstance(data, dict) and "prompt" in data:
