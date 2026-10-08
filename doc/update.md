@@ -1,5 +1,21 @@
 # Update Log
 
+## 2026-10-08
+- **Security: `custom_model_path` is now confined to ComfyUI's model directories.**
+  - The value is interpreted as a folder name relative to `models/qwen-tts` (plus any
+    `extra_model_paths.yaml` folder registered under `qwen-tts` / `TTS`), or relative to
+    `output/qwen3tts_finetune` for checkpoints produced by the Train node.
+  - Absolute paths, drive letters and network shares (`\\server\share`) are refused
+    **before** any filesystem access: on Windows, merely checking whether such a path
+    exists opens an SMB session and sends the current user's credentials to that machine.
+  - The Train node now returns the checkpoint as a relative folder name (the absolute
+    location is printed in the console), so it can be pasted straight into
+    `custom_model_path`.
+  - An invalid value raises a clear error instead of silently falling back to the
+    standard model lookup.
+  - See [README.md](../README.md) / [README_CN.md](../README_CN.md), section
+    "Loading a Fine-Tuned Model".
+
 ## 2026-04-12 (v1.0.7)
 - **Removed `QwenTTSConfigNode`**: The global pause control node has been removed due to negative impact on audio quality.
   - Splitting text at punctuation and generating each segment independently caused **voice inconsistency** (different timbres within a single utterance), especially severe for `VoiceDesignNode`.
@@ -19,7 +35,7 @@
 
 ## 2026-01-29
 - **Fine-tuning Support**: Added support for loading custom fine-tuned models in `VoiceCloneNode` and `CustomVoiceNode`.
-  - Added `custom_model_path` input: specific absolute path to model folder.
+  - Added `custom_model_path` input: model folder for a fine-tuned model. It used to accept an absolute path; since 2026-10-08 it must be relative to ComfyUI's model directories.
   - Added `custom_speaker_name` input to `CustomVoiceNode`: allows calling specific speaker IDs from fine-tuned models.
 
 ![Custom Model Loading UI](/doc/example3.png)

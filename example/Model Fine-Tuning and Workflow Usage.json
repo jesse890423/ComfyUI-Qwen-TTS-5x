@@ -145,7 +145,7 @@
         "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
         "Qwen/Qwen3-TTS-Tokenizer-12Hz",
         "",
-        "F:\\ComfyUI-aki-v1.7\\ComfyUI\\output\\qwen3tts_finetune",
+        "qwen3tts_finetune",
         "new_speaker",
         "Hello, this is a test of my new voice.",
         "English",
@@ -267,7 +267,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "```\n从custom_model_path和custom_speaker_name输出微调的模型路径和speaker_name即可生成音频,但是目前不支持指令控制,官方未放出相关训练代码\n```\n```\nOutput the fine-tuned model path and speaker_name from custom_model_path and custom_speaker_name to generate audio. However, command control is currently unsupported, and the official training code has not been released.\n```"
+        "```\n把微调的模型文件夹放到 models/qwen-tts 下（或留在 output/qwen3tts_finetune 里），在custom_model_path填写相对该目录的文件夹名（例如 qwen3tts_finetune/checkpoint-epoch-9），再填custom_speaker_name即可生成音频；绝对路径和网络路径会被拒绝。目前不支持指令控制，官方未放出相关训练代码\n```\n```\nPut the fine-tuned model folder under models/qwen-tts (or keep it in output/qwen3tts_finetune), then fill custom_model_path with the folder name relative to that base (e.g. qwen3tts_finetune/checkpoint-epoch-9) and set custom_speaker_name to generate audio. Absolute and network paths are rejected. Instruction control is not supported yet, and the official training code has not been released.\n```"
       ],
       "color": "#432",
       "bgcolor": "#653"
@@ -484,7 +484,7 @@
         1.05,
         "auto",
         true,
-        "D:\\RH\\checkpoint-epoch-9",
+        "qwen3tts_finetune/checkpoint-epoch-9",
         "贞贞"
       ]
     },
@@ -703,7 +703,7 @@
         false,
         "auto",
         false,
-        "D:\\RH\\checkpoint-epoch-9"
+        "qwen3tts_finetune/checkpoint-epoch-9"
       ]
     }
   ],

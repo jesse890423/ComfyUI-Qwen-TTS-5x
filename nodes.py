@@ -172,6 +172,123 @@ def _voices_dir():
     return os.path.realpath(os.path.join(folder_paths.models_dir, "qwen-tts", "voices"))
 
 
+def _model_search_roots():
+    """Directories this plugin may load models from: ComfyUI model folders only.
+
+    Every entry comes from the local ComfyUI installation (its models
+    directory, or a path registered under the "qwen-tts" / "TTS" keys, which is
+    how extra_model_paths.yaml contributes a folder). None of them come from a
+    workflow, so a shared workflow cannot add a location to this list.
+    """
+    roots = []
+    try:
+        roots.append(os.path.join(folder_paths.models_dir, "qwen-tts"))
+    except Exception:
+        pass
+    try:
+        comfy_root = os.path.dirname(os.path.abspath(folder_paths.__file__))
+        roots.append(os.path.join(comfy_root, "models", "qwen-tts"))
+        roots.append(os.path.join(os.path.dirname(comfy_root), "models", "qwen-tts"))
+    except Exception:
+        pass
+    for key in ("qwen-tts", "TTS"):
+        try:
+            roots.extend(folder_paths.get_folder_paths(key) or [])
+        except Exception:
+            pass
+
+    unique = []
+    for raw in roots:
+        try:
+            real = os.path.realpath(raw)
+        except Exception:
+            continue
+        if real and real not in unique:
+            unique.append(real)
+    return unique
+
+
+def _names_remote_machine(text):
+    """True when the string points at another host (Windows UNC share).
+
+    On Windows any filesystem call on such a path - even just a stat - opens an
+    SMB session and hands the remote machine the current user's credentials, so
+    the shape has to be refused before the path is touched.
+    """
+    normalized = str(text or "").strip().replace("/", "\\")
+    return normalized.startswith("\\\\")
+
+
+def _custom_model_roots():
+    """Folders a workflow may pick a fine-tuned model from.
+
+    Two fixed bases, both decided by the local ComfyUI installation and never by
+    the workflow text: the model directories from _model_search_roots(), plus
+    output/qwen3tts_finetune where this plugin's own Train node writes
+    checkpoints (so "fine-tune then load the checkpoint" keeps working with a
+    relative folder name).
+    """
+    roots = list(_model_search_roots())
+    try:
+        roots.append(os.path.realpath(os.path.join(folder_paths.output_directory,
+                                                   "qwen3tts_finetune")))
+    except Exception:
+        pass
+    unique = []
+    for real in roots:
+        if real and real not in unique:
+            unique.append(real)
+    return unique
+
+
+def _resolve_custom_model_dir(raw):
+    """Resolve the ``custom_model_path`` widget inside ComfyUI's model folders.
+
+    The widget is workflow text, so it is treated as a folder name *relative* to
+    the folders returned by _custom_model_roots(): network paths and absolute
+    paths are refused before any filesystem call, then _resolve_within()
+    re-checks the result with realpath + commonpath. Returns None when the
+    widget is empty (normal auto-detect).
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return None
+
+    if _names_remote_machine(text):
+        raise ValueError(
+            "custom_model_path must be a folder name inside ComfyUI's model "
+            f"directory, not a network path. Got: {text}"
+        )
+    if os.path.isabs(text) or os.path.splitdrive(text)[0]:
+        raise ValueError(
+            "custom_model_path must be a folder name inside ComfyUI's model "
+            f"directory (models/qwen-tts), not an absolute path. Got: {text}\n"
+            "Put the fine-tuned model under models/qwen-tts (or keep it in the "
+            "plugin's output/qwen3tts_finetune folder) and give only the folder "
+            "path relative to that base here."
+        )
+
+    roots = _custom_model_roots()
+    if not roots:
+        raise ValueError(
+            "No ComfyUI model directory is available for custom_model_path "
+            "(expected models/qwen-tts)."
+        )
+
+    last_error = None
+    for root in roots:
+        try:
+            return _resolve_within(root, text, "custom_model_path", must_exist=True)
+        except ValueError as exc:
+            last_error = exc
+
+    raise ValueError(
+        "custom_model_path must name an existing folder inside one of ComfyUI's "
+        f"model directories or output/qwen3tts_finetune. Looked in: "
+        f"{', '.join(roots)}\n{last_error}"
+    )
+
+
 def _safe_filename(name, label="filename"):
     """Reduce a user-supplied file name to a bare name inside the base directory.
 
@@ -462,7 +579,12 @@ def load_qwen_model(model_type: str, model_choice: str, device: str, precision: 
         unload_cached_model()
     
     attn_impl = get_attention_implementation(attention)
-    
+
+    # custom_model_path is workflow text: resolve it into ComfyUI's model
+    # folders before anything is stat'ed, so a shared workflow cannot point at
+    # an arbitrary folder or a remote share.
+    custom_dir = _resolve_custom_model_dir(custom_model_path)
+
     # Check and download tokenizer (shared by all models)
     check_and_download_tokenizer()
     
@@ -486,8 +608,8 @@ def load_qwen_model(model_type: str, model_choice: str, device: str, precision: 
     if model_type == "VoiceDesign" and model_choice == "0.6B":
         raise RuntimeError("❌ VoiceDesign only supports 1.7B models!")
         
-    # Cache key includes attention implementation and custom model path
-    cache_key = (model_type, model_choice, device, precision, attn_impl, custom_model_path)
+    # Cache key includes attention implementation and the resolved model folder
+    cache_key = (model_type, model_choice, device, precision, attn_impl, custom_dir)
     if cache_key in _MODEL_CACHE:
         return _MODEL_CACHE[cache_key]
 
@@ -495,37 +617,8 @@ def load_qwen_model(model_type: str, model_choice: str, device: str, precision: 
     if _MODEL_CACHE:
         _MODEL_CACHE.clear()
     
-    # --- 1. Determine search directories ---
-    base_paths = []
-    try:
-        # Resolve ComfyUI root
-        import folder_paths
-        comfy_root = os.path.dirname(os.path.abspath(folder_paths.__file__))
-        qwen_tts_dir = os.path.join(comfy_root, "models", "qwen-tts")
-        if os.path.exists(qwen_tts_dir):
-            base_paths.append(qwen_tts_dir)
-        else:
-            # Compatibility check: models/qwen-tts in parent dir
-            alt_root = os.path.dirname(comfy_root)
-            alt_qwen_tts_dir = os.path.join(alt_root, "models", "qwen-tts")
-            if os.path.exists(alt_qwen_tts_dir):
-                base_paths.append(alt_qwen_tts_dir)
-    except Exception:
-        pass
-
-    # Check registered "qwen-tts" paths (includes extra_model_paths.yaml)
-    try:
-        qwen_paths = folder_paths.get_folder_paths("qwen-tts") or []
-        for p in qwen_paths:
-            if p not in base_paths: base_paths.append(p)
-    except Exception: pass
-
-    # Check registered TTS paths in folder_paths (Legacy)
-    try:
-        registered_tts = folder_paths.get_folder_paths("TTS") or []
-        for p in registered_tts:
-            if p not in base_paths: base_paths.append(p)
-    except Exception: pass
+    # --- 1. Determine search directories (ComfyUI model folders only) ---
+    base_paths = _model_search_roots()
 
     # --- 2. Search for matching models ---
     HF_MODEL_MAP = {
@@ -539,12 +632,9 @@ def load_qwen_model(model_type: str, model_choice: str, device: str, precision: 
     final_source = HF_MODEL_MAP.get((model_type, model_choice)) or "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
     found_local = None
 
-    if custom_model_path and isinstance(custom_model_path, str) and custom_model_path.strip():
-        if os.path.exists(custom_model_path) and os.path.isdir(custom_model_path):
-            print(f"🔧 [Qwen3-TTS] Using custom model path: {custom_model_path}")
-            found_local = custom_model_path
-        else:
-            print(f"⚠️ [Qwen3-TTS] Custom model path not found or invalid: {custom_model_path}")
+    if custom_dir:
+        print(f"🔧 [Qwen3-TTS] Using custom model folder: {custom_dir}")
+        found_local = custom_dir
     
     if not found_local:
         for base in base_paths:
@@ -1048,7 +1138,15 @@ class VoiceCloneNode:
                 "x_vector_only": ("BOOLEAN", {"default": False}),
                 "attention": (ATTENTION_OPTIONS, {"default": "auto", "tooltip": "Attention implementation"}),
                 "unload_model_after_generate": ("BOOLEAN", {"default": False, "tooltip": "Unload model from memory after generation"}),
-                "custom_model_path": ("STRING", {"default": "", "placeholder": "Absolute path to local fine-tuned model"}),
+                "custom_model_path": ("STRING", {
+                    "default": "",
+                    "placeholder": "Folder name inside models/qwen-tts (or output/qwen3tts_finetune)",
+                    "tooltip": "Optional fine-tuned model folder, given as a path RELATIVE to "
+                               "ComfyUI's models/qwen-tts directory (or to output/qwen3tts_finetune "
+                               "for checkpoints produced by the Train node). Absolute paths, drive "
+                               "letters and network share paths are refused: leave empty to use the "
+                               "standard model lookup.",
+                }),
             }
         }
 
@@ -1252,7 +1350,15 @@ class CustomVoiceNode:
                 "repetition_penalty": ("FLOAT", {"default": 1.05, "min": 1.0, "max": 2.0, "step": 0.05, "tooltip": "Penalty for repetition"}),
                 "attention": (ATTENTION_OPTIONS, {"default": "auto", "tooltip": "Attention implementation"}),
                 "unload_model_after_generate": ("BOOLEAN", {"default": False, "tooltip": "Unload model from memory after generation"}),
-                "custom_model_path": ("STRING", {"default": "", "placeholder": "Absolute path to local fine-tuned model"}),
+                "custom_model_path": ("STRING", {
+                    "default": "",
+                    "placeholder": "Folder name inside models/qwen-tts (or output/qwen3tts_finetune)",
+                    "tooltip": "Optional fine-tuned model folder, given as a path RELATIVE to "
+                               "ComfyUI's models/qwen-tts directory (or to output/qwen3tts_finetune "
+                               "for checkpoints produced by the Train node). Absolute paths, drive "
+                               "letters and network share paths are refused: leave empty to use the "
+                               "standard model lookup.",
+                }),
                 "custom_speaker_name": ("STRING", {"default": "", "placeholder": "Custom speaker name (for fine-tuned models)"}),
             }
         }

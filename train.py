@@ -394,6 +394,13 @@ class Qwen3TTS_Train_Node:
                 self._run_validation(checkpoint_dir, test_text, speaker_name, unique_id, epoch+1)
 
         send_training_update(unique_id, {"type": "status", "message": "Done!"})
+        if final_checkpoint:
+            # This string is meant to be pasted into custom_model_path, which only
+            # accepts a path relative to output/qwen3tts_finetune, so report it in
+            # that form and keep the absolute location in the console log.
+            print(f"📁 [Qwen3-TTS] Checkpoint saved to: {final_checkpoint}")
+            relative = os.path.relpath(final_checkpoint, _finetune_base_dir())
+            return (relative.replace("\\", "/"),)
         return (final_checkpoint,)
 
     def _prepare_dataset(self, audio_folder, tokenizer, language, unique_id):

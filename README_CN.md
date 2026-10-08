@@ -320,6 +320,27 @@ ComfyUI/
 qwen-tts: D:\MyAI\Models\Qwen
 ```
 
+### 加载微调模型（`custom_model_path`）
+
+`VoiceCloneNode` 与 `CustomVoiceNode` 的 `custom_model_path` 会被写进工作流文件，
+而工作流是会被别人分享下来的，因此这个值只会被当作**相对以下固定基目录的文件夹名**
+来解析：
+
+| 基目录 | 常见内容 |
+|---|---|
+| `models/qwen-tts/`（以及 `extra_model_paths.yaml` 里 `qwen-tts` / `TTS` 登记的目录） | 你自己放进去的模型 |
+| `output/qwen3tts_finetune/` | 训练节点产出的 checkpoint |
+
+示例：`my_lora`、`nested/my_lora`、`checkpoint-epoch-9`。
+
+绝对路径（`D:\models\my_lora`）、网络共享路径（`\\server\share\my_lora`）以及任何
+逃出上述目录的写法都会被拒绝，而且是在**触碰该路径之前**就拒绝——在 Windows 上，
+对共享路径做一次哪怕「是否存在」的判断，都会立刻发起 SMB 会话，把当前登录用户的
+凭据交给那台机器。
+
+因此训练节点现在把 checkpoint 以相对文件夹名输出（绝对位置打印在控制台），
+可以直接粘贴到 `custom_model_path` 里使用。
+
 ## 最佳实践技巧
 
 ### 音频质量

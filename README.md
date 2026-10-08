@@ -337,6 +337,28 @@ ComfyUI/
 qwen-tts: D:\MyModels\Qwen
 ```
 
+### Loading a Fine-Tuned Model (`custom_model_path`)
+
+`VoiceCloneNode` and `CustomVoiceNode` accept a `custom_model_path` value, which is
+stored inside the workflow file. Because workflows are shared, this value is only
+ever interpreted as a **folder name relative to one of these fixed bases**:
+
+| Base | Typical content |
+|---|---|
+| `models/qwen-tts/` (and any `extra_model_paths.yaml` entry for `qwen-tts` / `TTS`) | models you placed there yourself |
+| `output/qwen3tts_finetune/` | checkpoints produced by the Train node |
+
+Examples: `my_lora`, `nested/my_lora`, `checkpoint-epoch-9`.
+
+Absolute paths (`D:\models\my_lora`), network shares (`\\server\share\my_lora`) and
+anything that escapes one of those bases are refused **before the path is touched** —
+on Windows even a plain existence check on a share path opens an SMB session and
+leaks the current user's credentials to that machine.
+
+The Train node therefore reports its checkpoint as a relative folder name (the
+absolute location is printed in the console), so it can be pasted straight into
+`custom_model_path`.
+
 ## Tips for Best Results
 
 ### Audio Quality
